@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/tsenart/tb"
 )
 
 // SimpleTransport is an HTTP RoundTripper that doesn't pool connections. Most of this is ripped from http.Transport.
@@ -19,6 +21,28 @@ type SimpleTransport struct {
 
 	// RequestTimeout isn't exact. In the worst case, the actual timeout can come at RequestTimeout * 2.
 	RequestTimeout time.Duration
+}
+
+type ThrottleTransport struct {
+	SimpleTransport
+	throttler *tb.Throttler
+}
+
+func NewThrottleTransport(throttleRate, readTimeout, requestTimeout time.Duration) *ThrottleTransport {
+	s := SimpleTransport{
+		ReadTimeout:    readTimeout,
+		RequestTimeout: requestTimeout,
+	}
+	return &ThrottleTransport{
+		throttler:       tb.NewThrottler(throttleRate),
+		SimpleTransport: s,
+	}
+
+}
+
+func (this *ThrottleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	this.throttler.Wait("request", 1, 1)
+	return this.SimpleTransport.RoundTrip(req)
 }
 
 func (this *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
