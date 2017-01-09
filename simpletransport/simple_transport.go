@@ -13,8 +13,7 @@ import (
 	"time"
 )
 
-// An HTTP RoundTripper that doesn't pool connections. Most of this is ripped from http.Transport.
-
+// SimpleTransport is an HTTP RoundTripper that doesn't pool connections. Most of this is ripped from http.Transport.
 type SimpleTransport struct {
 	ReadTimeout time.Duration
 
@@ -23,21 +22,18 @@ type SimpleTransport struct {
 }
 
 func (this *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL == nil {
+	switch {
+	case req.URL == nil:
 		return nil, errors.New("http: nil Request.URL")
-	}
-	if req.Header == nil {
+	case req.Header == nil:
 		return nil, errors.New("http: nil Request.Header")
-	}
-	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+	case req.URL.Scheme != "http" && req.URL.Scheme != "https":
 		return nil, errors.New("http: unsupported protocol scheme")
-	}
-	if req.URL.Host == "" {
+	case req.URL.Host == "":
 		return nil, errors.New("http: no Host in request URL")
 	}
 
 	conn, err := this.dial(req)
-
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +60,6 @@ func (this *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error
 	// And read the response.
 	go func() {
 		resp, err := http.ReadResponse(reader, req)
-
 		if err != nil {
 			readDone <- responseAndError{nil, err}
 			return
@@ -78,14 +73,14 @@ func (this *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error
 			resp.ContentLength = -1
 
 			reader, err := gzip.NewReader(resp.Body)
-
 			if err != nil {
 				resp.Body.Close()
 				readDone <- responseAndError{nil, err}
 				return
-			} else {
-				resp.Body = &readerAndCloser{reader, resp.Body}
 			}
+
+			resp.Body = &readerAndCloser{reader, resp.Body}
+
 		}
 
 		readDone <- responseAndError{resp, nil}
@@ -108,7 +103,6 @@ func (this *SimpleTransport) dial(req *http.Request) (net.Conn, error) {
 	targetAddr := canonicalAddr(req.URL)
 
 	c, err := net.Dial("tcp", targetAddr)
-
 	if err != nil {
 		return c, err
 	}
@@ -143,7 +137,6 @@ func (this *SimpleTransport) dial(req *http.Request) (net.Conn, error) {
 // canonicalAddr returns url.Host but always with a ":port" suffix
 func canonicalAddr(url *url.URL) string {
 	addr := url.Host
-
 	if !hasPort(addr) {
 		if url.Scheme == "http" {
 			return addr + ":80"
@@ -193,7 +186,6 @@ func newDeadlineConn(conn net.Conn, deadline time.Duration) *deadlineConn {
 
 func (this *deadlineConn) Read(b []byte) (n int, err error) {
 	n, err = this.Conn.Read(b)
-
 	if err != nil {
 		return
 	}
