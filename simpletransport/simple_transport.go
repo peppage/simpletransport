@@ -28,13 +28,20 @@ type ThrottleTransport struct {
 	throttler *tb.Throttler
 }
 
-func NewThrottleTransport(throttleRate, readTimeout, requestTimeout time.Duration) *ThrottleTransport {
+// ThrottleOptions are the options to create a new throttle transport
+type ThrottleOptions struct {
+	ThrottleRate      time.Duration
+	ReadTimeout       time.Duration
+	RequestTimeout    time.Duration
+}
+// NewThrottleTransport setups and returns a ThrottleTransport
+func NewThrottleTransport(opt *ThrottleOptions) *ThrottleTransport {
 	s := SimpleTransport{
-		ReadTimeout:    readTimeout,
-		RequestTimeout: requestTimeout,
+		ReadTimeout:       opt.ReadTimeout,
+		RequestTimeout:    opt.RequestTimeout,
 	}
 	return &ThrottleTransport{
-		throttler:       tb.NewThrottler(throttleRate),
+		throttler:       tb.NewThrottler(opt.ThrottleRate),
 		SimpleTransport: s,
 	}
 
