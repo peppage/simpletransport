@@ -52,12 +52,12 @@ func NewThrottleTransport(opt *ThrottleOptions) *ThrottleTransport {
 
 }
 
-func (this *ThrottleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	this.throttler.Wait("request", 1, 1)
-	return this.SimpleTransport.RoundTrip(req)
+func (t *ThrottleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	t.throttler.Wait("request", 1, 1)
+	return t.SimpleTransport.RoundTrip(req)
 }
 
-func (this *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch {
 	case req.URL == nil:
 		return nil, errors.New("http: nil Request.URL")
@@ -69,7 +69,7 @@ func (this *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error
 		return nil, errors.New("http: no Host in request URL")
 	}
 
-	conn, err := this.dial(req)
+	conn, err := t.dial(req)
 	if err != nil {
 		return nil, err
 	}
@@ -135,23 +135,23 @@ func (this *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error
 	return r.res, nil
 }
 
-func (this *SimpleTransport) dial(req *http.Request) (net.Conn, error) {
+func (t *SimpleTransport) dial(req *http.Request) (net.Conn, error) {
 	targetAddr := canonicalAddr(req.URL)
 
-	c, err := net.DialTimeout("tcp", targetAddr, this.ConnectionTimeout)
+	c, err := net.DialTimeout("tcp", targetAddr, t.ConnectionTimeout)
 	if err != nil {
 		return c, err
 	}
 
-	if this.RequestTimeout > 0 && this.ReadTimeout == 0 {
-		this.ReadTimeout = this.RequestTimeout
+	if t.RequestTimeout > 0 && t.ReadTimeout == 0 {
+		t.ReadTimeout = t.RequestTimeout
 	}
 
-	if this.ReadTimeout > 0 {
-		c = newDeadlineConn(c, this.ReadTimeout)
+	if t.ReadTimeout > 0 {
+		c = newDeadlineConn(c, t.ReadTimeout)
 
-		if this.RequestTimeout > 0 {
-			c = newTimeoutConn(c, this.RequestTimeout)
+		if t.RequestTimeout > 0 {
+			c = newTimeoutConn(c, t.RequestTimeout)
 		}
 	}
 
@@ -176,9 +176,8 @@ func canonicalAddr(url *url.URL) string {
 	if !hasPort(addr) {
 		if url.Scheme == "http" {
 			return addr + ":80"
-		} else {
-			return addr + ":443"
 		}
+		return addr + ":443"
 	}
 
 	return addr
@@ -203,9 +202,9 @@ type connCloser struct {
 	conn net.Conn
 }
 
-func (this *connCloser) Close() error {
-	this.conn.Close()
-	return this.ReadCloser.Close()
+func (c *connCloser) Close() error {
+	c.conn.Close()
+	return c.ReadCloser.Close()
 }
 
 // A connection wrapper that times out after a period of time with no data sent.
@@ -220,13 +219,13 @@ func newDeadlineConn(conn net.Conn, deadline time.Duration) *deadlineConn {
 	return c
 }
 
-func (this *deadlineConn) Read(b []byte) (n int, err error) {
-	n, err = this.Conn.Read(b)
+func (c *deadlineConn) Read(b []byte) (n int, err error) {
+	n, err = c.Conn.Read(b)
 	if err != nil {
 		return
 	}
 
-	this.Conn.SetReadDeadline(time.Now().Add(this.deadline))
+	c.Conn.SetReadDeadline(time.Now().Add(c.deadline))
 	return
 }
 
@@ -241,10 +240,10 @@ func newTimeoutConn(conn net.Conn, timeout time.Duration) *timeoutConn {
 	return &timeoutConn{Conn: conn, timeout: time.Now().Add(timeout)}
 }
 
-func (this *timeoutConn) Read(b []byte) (int, error) {
-	if time.Now().After(this.timeout) {
+func (c *timeoutConn) Read(b []byte) (int, error) {
+	if time.Now().After(c.timeout) {
 		return 0, errors.New("connection timeout")
 	}
 
-	return this.Conn.Read(b)
+	return c.Conn.Read(b)
 }
