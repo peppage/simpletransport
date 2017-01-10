@@ -17,12 +17,14 @@ import (
 
 // SimpleTransport is an HTTP RoundTripper that doesn't pool connections. Most of this is ripped from http.Transport.
 type SimpleTransport struct {
-	ReadTimeout time.Duration
+	ReadTimeout       time.Duration
+	ConnectionTimeout time.Duration
 
 	// RequestTimeout isn't exact. In the worst case, the actual timeout can come at RequestTimeout * 2.
 	RequestTimeout time.Duration
 }
 
+// ThrottleTransport is an HTTP RoundTripper that uses a SimpleTransport but throttles the requests.
 type ThrottleTransport struct {
 	SimpleTransport
 	throttler *tb.Throttler
@@ -33,12 +35,15 @@ type ThrottleOptions struct {
 	ThrottleRate      time.Duration
 	ReadTimeout       time.Duration
 	RequestTimeout    time.Duration
+	ConnectionTimeout time.Duration
 }
+
 // NewThrottleTransport setups and returns a ThrottleTransport
 func NewThrottleTransport(opt *ThrottleOptions) *ThrottleTransport {
 	s := SimpleTransport{
 		ReadTimeout:       opt.ReadTimeout,
 		RequestTimeout:    opt.RequestTimeout,
+		ConnectionTimeout: opt.ConnectionTimeout,
 	}
 	return &ThrottleTransport{
 		throttler:       tb.NewThrottler(opt.ThrottleRate),
@@ -133,7 +138,7 @@ func (this *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error
 func (this *SimpleTransport) dial(req *http.Request) (net.Conn, error) {
 	targetAddr := canonicalAddr(req.URL)
 
-	c, err := net.Dial("tcp", targetAddr)
+	c, err := net.DialTimeout("tcp", targetAddr, this.ConnectionTimeout)
 	if err != nil {
 		return c, err
 	}
