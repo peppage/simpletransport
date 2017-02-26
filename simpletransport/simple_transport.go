@@ -40,6 +40,10 @@ type ThrottleOptions struct {
 
 // NewThrottleTransport setups and returns a ThrottleTransport
 func NewThrottleTransport(opt *ThrottleOptions) *ThrottleTransport {
+	if opt.ThrottleRate < time.Second {
+		panic("Throttle rate cannot be less than a second")
+	}
+
 	s := SimpleTransport{
 		ReadTimeout:       opt.ReadTimeout,
 		RequestTimeout:    opt.RequestTimeout,
