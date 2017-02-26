@@ -64,6 +64,11 @@ func (t *ThrottleTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	return t.SimpleTransport.RoundTrip(req)
 }
 
+// Close closes the throttler or the bucket will leak
+func (t *ThrottleTransport) Close() {
+	t.throttler.Close()
+}
+
 func (t *SimpleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch {
 	case req.URL == nil:
