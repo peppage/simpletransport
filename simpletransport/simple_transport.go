@@ -22,6 +22,7 @@ type SimpleTransport struct {
 
 	// RequestTimeout isn't exact. In the worst case, the actual timeout can come at RequestTimeout * 2.
 	RequestTimeout time.Duration
+	totalTokens    int64
 }
 
 // ThrottleTransport is an HTTP RoundTripper that uses a SimpleTransport but throttles the requests.
@@ -36,6 +37,7 @@ type ThrottleOptions struct {
 	ReadTimeout       time.Duration
 	RequestTimeout    time.Duration
 	ConnectionTimeout time.Duration
+	TotalTokens       int64
 }
 
 // NewThrottleTransport setups and returns a ThrottleTransport
@@ -48,6 +50,7 @@ func NewThrottleTransport(opt *ThrottleOptions) *ThrottleTransport {
 		ReadTimeout:       opt.ReadTimeout,
 		RequestTimeout:    opt.RequestTimeout,
 		ConnectionTimeout: opt.ConnectionTimeout,
+		totalTokens:       opt.TotalTokens,
 	}
 	return &ThrottleTransport{
 		throttler:       tb.NewThrottler(opt.ThrottleRate),
@@ -57,7 +60,7 @@ func NewThrottleTransport(opt *ThrottleOptions) *ThrottleTransport {
 }
 
 func (t *ThrottleTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	t.throttler.Wait("request", 1, 1)
+	t.throttler.Wait("request", 1, t.totalTokens)
 	return t.SimpleTransport.RoundTrip(req)
 }
 
